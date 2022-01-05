@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 
 def create_path():
     '''기본 데이터 path 만들기'''
@@ -8,6 +9,10 @@ def create_path():
         os.mkdir(os.path.join(bpath, 'labels'))
         os.mkdir(os.path.join(bpath, 'val'))
         os.mkdir(os.path.join(bpath, 'test'))
+    else:
+        import shutil
+        shutil.rmtree(bpath)
+        create_path()
 
 def unzipfile():
     '''unzip'''
@@ -26,13 +31,14 @@ def rename(work_path, save_path):
             os.rename(os.path.join(work_path, folder, file), os.path.join(save_path, f'{folder}_{file}'))
     
 def create_txt(lbl_path):
+    '''annnotation 정보 파일 생성'''
     import pandas as pd
     df = pd.read_csv(os.path.join(bpath, 'meta_df.csv'))
     create_yaml(df)
     grouped = df.groupby('img_file')
     for filename, grouped_data in grouped:
         front = filename.split('/')[0].replace('_','')
-        with open(f'{lbl_path}/{front}_{filename.split("/")[1].replace("jpg", "txt")}', 'w') as f:
+        with open(f'{lbl_path}/{front}_{filename.split("/")[1]}.txt', 'w') as f:
             for index, value in grouped_data.iterrows():
                 img_size = (value["img_width"], value["img_height"])
                 bbox = (value["x"], value["y"], value["width"], value["height"])
@@ -41,13 +47,16 @@ def create_txt(lbl_path):
             
 def create_yaml(df):
     '''yaml 생성'''
+    category_map = {x:y for x,y in zip(df['cat_name'],df['cat_id'])}
+    category_map['empty'] = 35
+    category_map = dict(sorted(category_map.items(), key=(lambda i:i[1])))
     with open(f'data/dataset.yaml', 'w') as f:
         f.write(f'path: {bpath}\n')
         f.write(f'train: images\n')
         f.write(f'val: val\n')
         f.write(f'test: test\n')
-        f.write(f'names: {list(df["cat_name"].unique())}\n')
-        f.write(f'nc: {len(list(df["cat_name"].unique()))}\n')
+        f.write(f'names: {list(category_map.keys())}\n')
+        f.write(f'nc: {len(list(df["cat_name"].unique()))+1}\n')
 
 def convert(img_size, bbox):
     '''annotation 정보 YOLO format으로 변환'''
@@ -63,7 +72,7 @@ def order_files(path):
 
 def move_files(src, dest, files):
     ''' 폴더 내 파일 이동 '''
-    for file in files:
+    for file in tqdm(files):
         os.replace(os.path.join(src, file), os.path.join(dest, file))
 
 def split_files(files):
