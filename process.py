@@ -34,6 +34,8 @@ def create_txt(lbl_path):
     '''annnotation 정보 파일 생성'''
     import pandas as pd
     df = pd.read_csv(os.path.join(bpath, 'meta_df.csv'))
+    scategory_map = {x:i for i, x in enumerate(df['supercategory'].unique())}
+    df['scat_id'] = [scategory_map[x] for x in df['supercategory']]
     create_yaml(df)
     grouped = df.groupby('img_file')
     for filename, grouped_data in grouped:
@@ -43,20 +45,18 @@ def create_txt(lbl_path):
                 img_size = (value["img_width"], value["img_height"])
                 bbox = (value["x"], value["y"], value["width"], value["height"])
                 x,y,w,h = convert(img_size, bbox)
-                f.write(f'{value["cat_id"]} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n')
+                f.write(f'{value["scat_id"]} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n')
             
 def create_yaml(df):
     '''yaml 생성'''
-    category_map = {x:y for x,y in zip(df['cat_name'],df['cat_id'])}
-    category_map['empty'] = 35
-    category_map = dict(sorted(category_map.items(), key=(lambda i:i[1])))
+    scategory_map = dict(sorted({x:y for x,y in zip(df['supercategory'],df['scat_id'])}.items(), key=(lambda i:i[1])))
     with open(f'data/dataset.yaml', 'w') as f:
         f.write(f'path: {bpath}\n')
         f.write(f'train: images\n')
         f.write(f'val: val\n')
         f.write(f'test: test\n')
-        f.write(f'names: {list(category_map.keys())}\n')
-        f.write(f'nc: {len(list(df["cat_name"].unique()))+1}\n')
+        f.write(f'names: {list(scategory_map.keys())}\n')
+        f.write(f'nc: {len(list(df["supercategory"].unique()))}\n')
 
 def convert(img_size, bbox):
     '''annotation 정보 YOLO format으로 변환'''
@@ -116,11 +116,3 @@ def organize_data(bpath):
 if __name__ == "__main__":
     bpath = os.path.join('data', 'dataset')
     organize_data(bpath)
-
-# category_map = dict(sorted({x:y for x,y in zip(df['cat_name'],df['cat_id'])}.items(), key=(lambda i:i[1])))
-# scategory_map = {x:i for i, x in enumerate(df['supercategory'].unique())}
-# df['scat_id'] = [scategory_map[x] for x in df['supercategory']]
-
-# {x:y for x,y in df['cat_id'].value_counts().items()}
-# {x:y for x,y in df['scat_id'].value_counts().items()}
-# len(df)
